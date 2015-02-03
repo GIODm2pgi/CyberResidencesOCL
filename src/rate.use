@@ -1,10 +1,17 @@
-class Rent
-attributes
-	discount : Real -- @derived
-	rate : Real -- @derived
-end
-
 class Discount
 	percentage : Integer
 	label : String
+end
+
+associationclass Rent between
+     Bedroom[1..*] role rentedBedrooms
+     Tenant[0..1] role tenant
+ attributes
+     discount : Real -- @derived
+	 rate : Real -- @derived
+end
+
+association HasDiscounts between
+     Rent[*] role rent
+     Discount[*] role discount
 end
