@@ -1,0 +1,10 @@
+class Rent
+attributes
+	discount : Real -- @derived
+	rate : Real -- @derived
+end
+
+class Discount
+	percentage : Integer
+	label : String
+end
