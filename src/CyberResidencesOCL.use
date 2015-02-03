@@ -127,7 +127,7 @@ associationclass Rent between
 end
 
 composition HasDiscounts between
-     Rent[*] role rent
+     Rent[1] role rent
      Discount[*] role discount
 end
 
