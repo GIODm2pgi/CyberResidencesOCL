@@ -28,14 +28,14 @@ attributes
     maxNbOfFreeUnits : Integer -- @derived
     avgRate : Real             -- @derived
 operations
-    -- Set of bedrooms of the residence.
+    -- Set of bedrooms of the residence
     bedrooms() : Set(Bedroom) =
         rooms->select(oclIsKindOf(Bedroom))->oclAsType(Set(Bedroom))
-    -- Set of useful bedrooms.
-    usefulBedrooms() : Set(Bedroom)
+    -- Set of useful bedrooms
+    usefulBedrooms() : Set(Bedroom) =
         bedrooms()->select(not isOutOfOrder)
     -- Set of residence bathrooms
-    bathrooms() : Set(Bathroom)
+    bathrooms() : Set(Bathroom) =
         rooms->select(oclIsKindOf(Bathroom))->oclAsType(Set(Bathroom))
 end
 
@@ -64,18 +64,6 @@ attributes
 end
 
 
-composition ContainsRoom between
-  Residence[1] role residence
-  Room[*] role rooms
-end
-
-
-association IsInBedroom between
-  Bathroom[0..3] role bathrooms
-  Bedroom[0..1] role bedroom
-end
-
-
 class Person
 attributes
 	name : String
@@ -96,6 +84,25 @@ attributes
 end
 
 
+class Discount
+attributes
+	percentage : Integer
+	label : String
+end
+
+
+composition ContainsRoom between
+  Residence[1] role residence
+  Room[*] role rooms
+end
+
+
+association IsInBedroom between
+  Bathroom[0..3] role bathrooms
+  Bedroom[0..1] role bedroom
+end
+
+
 association IsTutoredBy between
   Resident[*] role tutors
   Resident[0..2] role tutored
@@ -113,10 +120,6 @@ association IsMarried between
   Resident[0..1]
 end
 
-class Discount
-	percentage : Integer
-	label : String
-end
 
 associationclass Rent between
      Bedroom[1..*] role rentedBedrooms
@@ -125,6 +128,7 @@ associationclass Rent between
      discount : Real -- @derived
 	 rate : Real -- @derived
 end
+
 
 composition HasDiscounts between
      Rent[1] role rent
@@ -156,24 +160,25 @@ constraints
 
 
 -------------------------------------------------------------------------------
---                                 adultMarried
+-- *                                adultMarried
 -------------------------------------------------------------------------------
 -- Only adult married.
 -- Easy. Use 'implies'
 
--- context Resident inv adultMarried:
-    -- To be registered as married, resident must be adult.
+context Resident inv adultMarried:
+    -- The minimal age to rent a bedroom is 18 years old.
+    self.consort->notEmpty() implies self.age >= 18
 
 
 -------------------------------------------------------------------------------
---                                 adultTenant
+-- *                                adultTenant
 -------------------------------------------------------------------------------
 -- Tenants are adults.
 -- Easy
 
--- context Tenant inv adultTenant:
+context Tenant inv adultTenant:
     -- The minimal age to rent a bedroom is 18 years old.
-
+    self.tenant->notEmpty() implies self.age >= 18
 
 -------------------------------------------------------------------------------
 --                             allPrestigeBathrooms
@@ -187,35 +192,36 @@ constraints
 
 
 -------------------------------------------------------------------------------
---                                 atLeastABed
+-- *                                atLeastABed
 -------------------------------------------------------------------------------
 -- At least one bed for useful bedrooms.
 -- Easy. Use implies.
 
--- context Bedroom inv atLeastABed:
+context Bedroom inv atLeastABed:
     -- Bedrooms that are not out of order must have at least one bed.
+    self.usefulBedrooms()->foreach( nbOfSingleBed > 0 or nbOfDoubleBed > 0 )
 
 
 -------------------------------------------------------------------------------
---                               atLeastOneAdult
+-- *                              atLeastOneAdult
 -------------------------------------------------------------------------------
 -- At least one adult per room.
 -- Easy. Use 'implies'
 
--- context Bedroom inv atLeastOneAdult:
+context Bedroom inv atLeastOneAdult:
     -- At least one adult must be presented in all occupied rooms.
-
+    self.occupants->notEmpty() implies self.occupants->exist(self.age >= 18)
 
 -------------------------------------------------------------------------------
---                               childNonSmoking
+-- *                              childNonSmoking
 -------------------------------------------------------------------------------
 -- Non smoking child.
 -- Easy
 
 
--- context Resident inv childNonSmoking:
+context Resident inv childNonSmoking:
     -- Children are always declared as non smoker.
-
+    (not self.isSmoker.oclIsUndefined()) and self.isSmoker implies self.age >= 18
 
 -------------------------------------------------------------------------------
 --                                 childTutored
@@ -237,7 +243,7 @@ constraints
 
 -- context Rent inv cumulatedDiscounts:
     -- No room will have more that 70% of dicounts cumulated.
-
+    
 
 -------------------------------------------------------------------------------
 --                                deriveAvgRate
@@ -334,13 +340,14 @@ constraints
 
 
 -------------------------------------------------------------------------------
---                               domainPercentage
+-- *                              domainPercentage
 -------------------------------------------------------------------------------
 -- Domain of percentage attribute.
 -- Easy
 
--- context Discount inv domainPercentage:
+context Discount inv domainPercentage:
     -- The percentage is a value between 1 and 100.
+    self.percentage >= 0 and self.percentage <= 100
 
 
 -------------------------------------------------------------------------------
@@ -544,14 +551,14 @@ constraints
 
 
 -------------------------------------------------------------------------------
---                            smokingPrestigePolicy
+-- *                           smokingPrestigePolicy
 -------------------------------------------------------------------------------
 -- No smoking is prestige.
 -- Easy
 
--- context Bedroom inv smokingPrestigePolicy:
+context Bedroom inv smokingPrestigePolicy:
     -- There are no smoking rooms at all in residence of prestige.
-
+    self.category = prestige implies -> self.bedrooms()->foreach( isNonSmoking = true )
 
 -------------------------------------------------------------------------------
 --                              tenantInRentedRoom
@@ -564,14 +571,15 @@ constraints
 
 
 -------------------------------------------------------------------------------
---                                  tutorAdult
+-- *                                 tutorAdult
 -------------------------------------------------------------------------------
 -- Tutors are adults.
 -- Easy
 
--- context Resident inv tutorAdult:
+context Resident inv tutorAdult:
     -- A resident can not be the tutor of another resident if he or
     -- she is not an adult.
+    self.tutors->notEmpty() implies self.age >= 18
 
 
 -------------------------------------------------------------------------------
