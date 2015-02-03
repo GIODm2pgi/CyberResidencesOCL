@@ -11,7 +11,7 @@ associationclass Rent between
 	 rate : Real -- @derived
 end
 
-association HasDiscounts between
+composition HasDiscounts between
      Rent[*] role rent
      Discount[*] role discount
 end
