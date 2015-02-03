@@ -364,7 +364,7 @@ context Bedroom inv enoughBathroomsInPrestige:
     -- In a prestige residence, the number of private bathrooms is at
     -- least the same as the number of beds in each bedroom.
     self.residence.category = Category::prestige implies
-        (self.nbOfSingleBeds+self.nbOfDoubleBeds) <= self.bathrooms->size()
+        (self.nbOfSingleBeds + self.nbOfDoubleBeds) <= self.bathrooms->size()
 
 -------------------------------------------------------------------------------
 -- *                            floorBetweenMinAndMax
