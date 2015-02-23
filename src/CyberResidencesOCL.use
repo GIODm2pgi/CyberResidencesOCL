@@ -91,7 +91,7 @@ attributes
 end
 
 
-composition ContainsRoom between
+composition ContainsRooms between
   Residence[1] role residence
   Room[*] role rooms
 end
@@ -115,7 +115,7 @@ association IsOccupiedBy between
 end
 
 
-association IsMarried between
+association IsMarriedWith between
   Resident[0..1] role consort
   Resident[0..1]
 end
@@ -147,7 +147,8 @@ context Rent inv aboooConditions:
     -- A discount is given for bedrooms that have all bathrooms out of
     -- order. The label of this type of discount is 'BROOO50'. This
     -- rule does not apply in economy residences.
-	(not self.rentedBedrooms.residence->asSet()->forAll(category = Category::economy)) and
+	self.rentedBedrooms.residence.category <> Category::economy and
+	self.rentedBedrooms.bathrooms->size() > 0 and
 	self.rentedBedrooms.bathrooms->size() = self.rentedBedrooms.bathrooms.select(isOutOfOrder)->size()
 	implies self.discounts.one(disc | disc.label = 'BROOO50')
 	
@@ -191,8 +192,8 @@ context Tenant inv adultTenant:
 context Residence inv allPrestigeBathrooms:
     -- Residences of category prestige have in each bedroom at least
     -- the same number of bathroom that the number of beds.
-	 self.category = Category::prestige implies self.bedrooms()->forAll( nbOfSingleBeds + nbOfDoubleBeds <= bathrooms->size())
-
+	self.category = Category::prestige implies self.bedrooms()->forAll(nbOfSingleBeds + nbOfDoubleBeds <= bathrooms->size())
+	
 -------------------------------------------------------------------------------
 -- *                                atLeastABed
 -------------------------------------------------------------------------------
@@ -234,7 +235,7 @@ context Resident inv childTutored:
     -- Resident that are less than 18 years old must have at least one
     -- tutor, apart in prestige residences where this rule does not
     -- apply.
-    (not (self.occupiedRoom.residence.category = Category::prestige)) and self.age < 18
+    self.occupiedRoom.residence.category <> Category::prestige and self.age < 18
     implies self.tutors->size() >= 1
 
 -------------------------------------------------------------------------------
@@ -257,8 +258,11 @@ context Residence inv deriveAvgRate:
     -- The average rate of a residence is the total revenue of the
     -- residence divided by the number of occupants. Tutored residents
     -- do not count in this rule.
-	self.avgRate = self.bedrooms()->collect(rent.rate)->sum() / self.bedrooms().collect(occupants)->select(tutors->isEmpty())->size()
-
+    (self.bedrooms()->isEmpty() or self.bedrooms()->notEmpty() and self.bedrooms()->select(rent->notEmpty())->isEmpty()
+    implies self.avgRate = 0) and 
+    (self.bedrooms()->notEmpty() and self.bedrooms()->select(rent->notEmpty())->notEmpty() implies 
+    self.avgRate = self.bedrooms()->collect(rent.rate)->sum() / self.bedrooms().collect(occupants)->select(tutors->isEmpty())->size())
+    
 -------------------------------------------------------------------------------
 -- *                               deriveDiscount
 -------------------------------------------------------------------------------
@@ -268,7 +272,7 @@ context Residence inv deriveAvgRate:
 context Rent inv deriveDiscount:
     -- The discount for a rent, is the rate of the bedroom multiplied
     -- by the sum of percentages of all discounts.
-    self.discount = self.rentedBedrooms.rate * (self.discounts->collect(percentage)->sum())
+    self.discount = self.rentedBedrooms.rate * ((self.discounts->collect(percentage)->sum()) / 100)
 
 -------------------------------------------------------------------------------
 -- *                                deriveFloor
@@ -280,7 +284,7 @@ context Room inv deriveFloor:
     -- The floor number correspond to the first digits of the room
     -- number, where the last two digits are removed. For instance the
     -- room 634 is at the floor 6.
-    self.floor = self.number / 100
+    self.floor = (self.number / 100).floor()
 
 -------------------------------------------------------------------------------
 -- *                            deriveIsOnTheLanding
@@ -291,7 +295,7 @@ context Room inv deriveFloor:
 context Bathroom inv deriveIsOnTheLanding:
     -- A bathroom is said to be on the landing if it is not in a
     -- bedroom.
-    self.bedroom->notEmpty() implies self.isOnTheLanding = true and self.isOnTheLanding = true implies self.bedroom->notEmpty()
+    self.isOnTheLanding implies (not self.bedroom->notEmpty()) and (not self.isOnTheLanding) implies self.bedroom->notEmpty()
 
 -------------------------------------------------------------------------------
 -- *                           deriveMaxNbOfFreeUnits
@@ -302,7 +306,9 @@ context Bathroom inv deriveIsOnTheLanding:
 context Residence inv deriveMaxNbOfFreeUnits:
     -- The maximum number of free units is equal to the maximum number
     -- of places in beds of all rooms of the residence.
-    self.maxNbOfFreeUnits = self.bedrooms()->collect( nbOfUnits )-> sum()
+	(self.bedrooms()->isEmpty() implies self.maxNbOfFreeUnits = 0) and
+	(self.bedrooms()->notEmpty() implies
+	self.maxNbOfFreeUnits = self.bedrooms()->collect(nbOfUnits)->any(a | self.bedrooms()->collect(nbOfUnits)->forAll(a2 | a >= a2)))
 
 -------------------------------------------------------------------------------
 -- *                              deriveNbOfUnits
@@ -374,7 +380,7 @@ context Bedroom inv enoughBathroomsInPrestige:
 context Room inv floorBetweenMinAndMax:
     -- The floor of a room is between the minium and maximum floor of
     -- the residence.
-    self.floor >= self.residence.floorMin and self.floor >= self.residence.floorMax
+    self.floor >= self.residence.floorMin and self.floor <= self.residence.floorMax
     
 
 -------------------------------------------------------------------------------
@@ -472,7 +478,7 @@ context Bedroom inv noSquaters:
 
 context Resident inv noTutorForAdults:
     -- Adults never have tutor.
-    self.age >= 18 implies self.tutored->isEmpty()
+    self.age >= 18 implies self.tutors->isEmpty()
 
 -------------------------------------------------------------------------------
 -- *                             oooBedroomsNotRented
@@ -534,7 +540,7 @@ context Rent inv sboooConditions:
     -- out of order, but at least one bathroom still available.  The
     -- label for this type of discount is SBOO. This type of discount
     -- does not apply on economy residences.
-	(not self.rentedBedrooms.residence->asSet()->forAll(category = Category::economy)) and
+	self.rentedBedrooms.residence.category <> Category::economy and
 	self.rentedBedrooms.bathrooms->select(isOutOfOrder = true)->size() >= 1 and
 	self.rentedBedrooms.bathrooms->select(isOutOfOrder = false)->size() >= 1
 	implies self.discounts.one(disc | disc.label = 'SBOO')
@@ -548,9 +554,11 @@ context Rent inv sboooConditions:
 context Discount inv sboooPercentage:
     -- In premium residences, SBOO discounts are equal to 25%. For
     -- standard category the discount is of 10%.
-    if self.rent.rentedBedrooms.residence->asSet()->forAll(category = Category::standard) then
+    self.rent.rentedBedrooms->notEmpty() implies 
+    if self.rent.rentedBedrooms.residence.category = Category::standard then
     self.label = 'SBOO' implies self.percentage = 10 else
-    self.label = 'SBOO' implies self.percentage = 25 endif
+    if self.rent.rentedBedrooms.residence.category = Category::premium then
+    self.label = 'SBOO' implies self.percentage = 25 else true endif endif
 
 
 -------------------------------------------------------------------------------
@@ -594,7 +602,7 @@ context Tenant inv tenantInRentedRoom:
 context Resident inv tutorAdult:
     -- A resident can not be the tutor of another resident if he or
     -- she is not an adult.
-    self.tutors->notEmpty() implies self.age >= 18
+    self.tutored->notEmpty() implies self.age >= 18
 
 
 -------------------------------------------------------------------------------
@@ -617,5 +625,6 @@ context Resident inv tutorInSameGroup:
 
 context Residence inv uniqueNumberApartForPrivateBathroom:
     -- All rooms have a distinct number, except private bathrooms.
+    self.bedrooms()->notEmpty() implies    
     self.bedrooms()->union(self.bathrooms()->select(isOnTheLanding = true))->isUnique(number)
 	
