@@ -261,7 +261,7 @@ context Residence inv deriveAvgRate:
     (self.bedrooms()->isEmpty() or self.bedrooms()->notEmpty() and self.bedrooms()->select(rent->notEmpty())->isEmpty()
     implies self.avgRate = 0) and 
     (self.bedrooms()->notEmpty() and self.bedrooms()->select(rent->notEmpty())->notEmpty() implies 
-    self.avgRate = self.bedrooms()->collect(rent.rate)->sum() / self.bedrooms().collect(occupants)->select(tutors->isEmpty())->size())
+    self.avgRate = self.bedrooms()->select(rent->notEmpty())->collect(rent.rate)->sum() / self.bedrooms().collect(occupants)->select(tutors->isEmpty())->size())
     
 -------------------------------------------------------------------------------
 -- *                               deriveDiscount
@@ -457,7 +457,7 @@ context Bedroom inv noBedroomOverload:
 
 context Bedroom inv noEmptyRentedBedrooms:
     -- All rented bedrooms are occupied by at least one occupant.
-    self.tenant->notEmpty() implies self.occupants->size() >= 0
+    self.tenant->notEmpty() implies self.occupants->size() > 0
 
 -------------------------------------------------------------------------------
 -- *                                  noSquaters
