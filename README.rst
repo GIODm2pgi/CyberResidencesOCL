@@ -15,3 +15,12 @@ https://docs.google.com/spreadsheets/d/1M_sQZvy5f9DFWFIas0eOxV-_0Gz0Hgi4aahZj6xs
 -> .use (qui compile)
 -> /states (ne pas décommenter)
 -> feuille google sheet remplie
+
+
+--------------------------------------------------------
+
+Question :
+
+-> quelle est la différence entre "allPrestigeBathrooms" et "enoughBathroomsInPrestige" ?
+
+-> "maxNbOfFreeUnits" est-ce que ca veut bien dire "le nombre max d'units pour une chambre" (<=> le nombre d'units de la + grand chambre)
